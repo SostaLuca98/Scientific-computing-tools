@@ -12,8 +12,8 @@ The repository has four subfolders which contain the folder related to each proj
 - Luca Sosta ([@SostaLuca98](https://github.com/SostaLuca98))
 
 ### :speech_balloon: Contributors
-- 
--
+- Davide Carrara ([@davidecarrara98](https://gitlab.com/davidecarrara98))
+- Lorenzo Galvan ([@lorenzogalvan](https://gitlab.com/lorenzogalvan))
 -
 -
 -
