@@ -14,7 +14,7 @@ The repository has four subfolders which contain the folder related to each proj
 ### :speech_balloon: Contributors
 - Davide Carrara ([@davidecarrara98](https://gitlab.com/davidecarrara98))
 - Lorenzo Galvan ([@lorenzogalvan](https://gitlab.com/lorenzogalvan))
--
--
--
--
+- Andrea Moreschi ([@andreamoreschi](https://gitlab.com/andreamoreschi))
+- Andrea Novellini ([@geonove](https://gitlab.com/geonove))
+- Randeep Singh ([@rando98](https://gitlab.com/rando98))
+- Daniela Zanotti ([@danielazanotti.98](https://gitlab.com/danielazanotti.98))
