@@ -1,0 +1,171 @@
+include "ffmatlib.idp"
+load "gmsh"
+real Re = 1e3 ;
+int ntest = 4 ;
+int nmesh = 10;
+
+// 1. variational forms
+macro Grad(f) [dx(f), dy(f)] //
+macro Grad2(fx,fy) [dx(fx), dy(fx), dx(fy), dy(fy)] //
+macro Div(fx,fy) (dx(fx) + dy(fy)) //
+macro UGrad(bx,by, f) [bx,by]' * Grad(f) //
+macro UGrad2(bx,by, fx,fy) [UGrad(bx,by,fx), UGrad(bx,by,fy)] //
+macro Curl(fx, fy) (dx(fy)-dy(fx))//
+
+
+string[int] cases = ["CACTUS", "CW", "WS", "CAULIFLOWER"];
+string[int] names = ["CW_R", "CC", "WS", "CL"];
+real[int] maxvel(4),  meanvel(4),  meancurl(4), quant25(4),  zerov(4), area(4);
+maxvel = 0.0;
+meanvel = 0.0;
+meancurl = 0.0;
+quant25 = 0.0;
+zerov = 0.0;
+area = 0.0;
+
+for(int i = 0; i<ntest; i++){
+	string case = cases[i];
+	string name = names[i];
+
+	real[int] maxveltemp(10), quant25temp(10),  meanveltemp(10),  meancurltemp(10), zerovtemp(10), areatemp(10);
+	maxveltemp = 0.0;
+	quant25temp = 0.0;
+	meanveltemp = 0.0;
+	meancurltemp = 0.0;
+	zerovtemp = 0.0;
+	areatemp = 0.0;
+
+	for (int numero = 0; numero < nmesh; numero++) {
+
+		// 2. finite element spaces
+		mesh Th = gmshload("../geometries/" + name + "/" + name + "_" + numero + "_20.msh");
+		//plot(Th, cmm = "Mesh");
+		fespace Vh(Th, [P2, P2]);
+		fespace Qh(Th, P1);
+		fespace Wh(Th, P0);
+
+		Vh [ux0h, uy0h],
+		[uxh, uyh],
+   		[vxh, vyh],
+   		[incrx, incry];
+		Qh p0h, ph, qh, incrp;
+		Wh ux, uy, p;
+
+		problem newton([uxh, uyh, ph], [vxh, vyh, qh]) =
+    		int2d(Th)(UGrad2(ux0h, uy0h, uxh, uyh)' * [vxh, vyh]
+        	      	+ UGrad2(uxh, uyh, ux0h, uy0h)' * [vxh, vyh]
+            	  	+ (Grad2(uxh, uyh)' * Grad2(vxh, vyh)) / Re
+              		- ph * Div(vxh, vyh) 
+              		+ Div(uxh, uyh) * qh)
+    		- int2d(Th)(UGrad2(ux0h, uy0h, ux0h, uy0h)' * [vxh, vyh])
+    		+ on(2, uxh=0.0, uyh=-0.3)
+    		+ on(2, ph=0.0)
+    		+ on(1, uxh=0.0, uyh=0.0);
+
+		func int step() {
+    		// input: [ux0h, uy0h, p0h] -> old solution
+    		// output: [uxh, uyh, ph] -> new solution
+    		newton;
+    		return 0;
+		}
+
+		func real error() {
+    		// input: [ux0h, uy0h, p0h] -> old solution
+    		// input: [uxh, uyh, ph] -> new solution
+	
+    		real pmean = int2d(Th)(ph);
+    		ph = ph - pmean;
+
+    		real p0mean = int2d(Th)(p0h);
+
+    		incrx[] = uxh[];
+    		incrx[] -= ux0h[];
+	
+    		real erru = int2d(Th)(dx(incrx)^2 + dy(incrx)^2 +
+        	    	              dx(incry)^2 + dy(incry)^2 +
+        	 	                 incrx^2 + incry^2);
+    		real errp = int2d(Th)((incrp)^2);
+    		real normu = int2d(Th)(dx(ux0h)^2 + dy(ux0h)^2 +
+           	 	               dx(uy0h)^2 + dy(uy0h)^2 +
+        	 	                  ux0h^2 + uy0h^2);
+    		real normp = int2d(Th)((p0h-p0mean)^2);
+	
+    		return sqrt(erru / normu) + sqrt(errp / normp);
+		}
+
+		// 4. nonlinear solver
+		int nbiter = 15;
+		real eps = 1.e-3;
+	
+		ux0h[] = 0.0;
+		p0h  = 0.0;
+		step();
+		ux0h[] = uxh[];
+		p0h = ph;
+	
+		int iter = 0;
+		for (iter = 0; iter < nbiter; ++iter) {
+    		int errc = step();
+    		if (errc != 0) {
+        		cout << "ERROR: iteration " << iter << " failed!" << endl;
+        		break;
+    		}
+    		if (error() < eps)
+        		break;
+    		ux0h[] = uxh[];
+			p0h = ph;
+		}
+		
+		// 8. solution
+		ux = uxh;
+		uy = uyh;
+		p = ph;
+		//plot(ph , nbiso=100, fill=1, wait=1, cmm=case + " Pressure");
+		//plot(uxh, nbiso=100, fill=1, wait=1, value = true, cmm=name + " Velocity X");
+		//plot(uyh, nbiso=100, fill=1, wait=1, value = true, cmm=name + " Velocity Y");
+		//plot(ux, nbiso=100, fill=1, wait=1, value = true, cmm=name + " Velocity UX");
+		//plot(uy, nbiso=100, fill=1, wait=1, value = true, cmm=name + " Velocity UY");
+		//plot([ux0h, uy0h],   fill=1, wait=1, value=true, cmm=case + " Velocity");
+
+		real[int] velvectemp(Wh.ndof);
+		velvectemp = 0;
+		for(int i=0; i<Wh.ndof; i++){
+			velvectemp[i] = sqrt(ux[][i]^2 + uy[][i]^2);
+			}
+
+		meanveltemp[numero]  = int2d(Th)(sqrt(ux^2 + uy^2)) / int2d(Th)(1);
+		maxveltemp[numero]   = ux[].max;	
+		meancurltemp[numero] = int2d(Th)(sqrt(Curl(uxh,uyh)^2)) / int2d(Th)(1);
+		
+		Wh zerovel = (sqrt(ux^2 + uy^2) < 1e-6) ? 1 : 0;
+		quant25temp[numero] = velvectemp.quantile(0.3);
+		zerovtemp[numero] = int2d(Th)(zerovel) / int2d(Th)(1);
+ 		areatemp[numero] = int2d(Th)(1);
+		}
+	//cout << "T1: " << zerovtemp << endl;
+	meanvel[i]  = meanveltemp.quantile(0.5) ;
+	maxvel[i]   = maxveltemp.quantile(0.5)  ;
+	meancurl[i] = meancurltemp.quantile(0.5);
+	zerov[i]    = zerovtemp.quantile(0.5);
+	quant25[i]  = quant25temp.quantile(0.5);
+	area[i]     = areatemp.quantile(0.5);
+
+	//Save P2 Data
+	//ffSaveData(uxh,"../data/vel_x_"+name+".txt");
+	//ffSaveData(uyh,"../data/vel_y_"+name+".txt");
+	//ffSaveData2(ux0h, uy0h,"../data/val_P2_"+name+".txt");
+	//Save P0 Data
+	//ffSaveData(ux,"../data/vel_ux_"+name+".txt");
+	//ffSaveData(uy,"../data/vel_uy_"+name+".txt");
+	//ffSaveData2(ux, uy,"../data/val_P0_"+name+".txt");
+}
+
+cout << "Test Cases: " << names << endl;
+cout << "Mean velocity: " << meanvel << endl;
+cout << "Zero velocity: " << zerov << endl;
+cout << "Max velocity: " << maxvel<< endl;
+cout << "Mean curl: " << meancurl << endl;
+cout << "Mean quant25: " << quant25 << endl;
+cout << "Mean AREA: " << area << endl;
+
+
