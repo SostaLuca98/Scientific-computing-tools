@@ -8,7 +8,7 @@ The repository has four subfolders which contain the folder related to each proj
 - Covid-19 Pandemic Predictions
 - Graph Neural Networks
 
-### :speech_balloon: Authors  
+### :speech_balloon: Author
 - Luca Sosta ([@SostaLuca98](https://github.com/SostaLuca98))
 
 ### :speech_balloon: Contributors
